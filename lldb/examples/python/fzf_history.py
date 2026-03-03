@@ -107,7 +107,7 @@ def _load_persisted_history(history_file):
 
     # Some characters (ex spaces and newlines) are encoded as octal values, but
     # as _characters_ (not bytes). Space is the string r"\\040".
-    history_decoded = re.sub(r"\\0([0-7][0-7])", _decode_char, history_contents)
+    history_decoded = re.sub(r"\\[0-7]{3}", _decode_char, history_contents)
     history_lines = history_decoded.splitlines()
 
     # Skip the header line (_HiStOrY_V2_)
@@ -138,6 +138,6 @@ def _load_history(debugger, history_file):
 
 
 def _decode_char(match):
-    """Decode octal strings ('\0NN') into a single character string."""
-    code = int(match.group(1), base=8)
+    r"""Decode octal strings (\NNN) into a single character string."""
+    code = int(match.group(0), base=8)
     return chr(code)

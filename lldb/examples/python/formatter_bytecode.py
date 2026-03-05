@@ -34,59 +34,76 @@ type_UInt = 3
 type_Object = 4
 type_Type = 5
 
-# Opcodes
-opcode = dict()
 
+class Op(int, enum.Enum):
+    """Bytecode operations by name and value, optionally with a custom mnemonic."""
 
-def define_opcode(n, mnemonic, name):
-    globals()["op_" + name] = n
-    if mnemonic:
-        opcode[mnemonic] = n
-    opcode[n] = mnemonic
+    mnemonic: Optional[str]
 
+    def __new__(cls, value: int, mnemonic: Optional[str] = None) -> "Op":
+        # This explicit implementation prevents the mnemonic argument from being
+        # passed through to int.__new__.
+        obj = int.__new__(cls, value)
+        obj._value_ = value
+        obj.mnemonic = mnemonic
+        return obj
 
-define_opcode(1, "dup", "dup")
-define_opcode(2, "drop", "drop")
-define_opcode(3, "pick", "pick")
-define_opcode(4, "over", "over")
-define_opcode(5, "swap", "swap")
-define_opcode(6, "rot", "rot")
+    @classmethod
+    def from_mnemonic(cls, mnemonic: str) -> "Op":
+        try:
+            return cls[mnemonic.upper()]
+        except KeyError:
+            for op in cls:
+                if op.mnemonic == mnemonic:
+                    return op
+            raise
 
-define_opcode(0x10, "{", "begin")
-define_opcode(0x11, "if", "if")
-define_opcode(0x12, "ifelse", "ifelse")
-define_opcode(0x13, "return", "return")
+    def __str__(self) -> str:
+        return self.mnemonic or self._name_.lower()
 
-define_opcode(0x20, None, "lit_uint")
-define_opcode(0x21, None, "lit_int")
-define_opcode(0x22, None, "lit_string")
-define_opcode(0x23, None, "lit_selector")
+    DUP = 1
+    DROP = 2
+    PICK = 3
+    OVER = 4
+    SWAP = 5
+    ROT = 6
 
-define_opcode(0x2A, "as_int", "as_int")
-define_opcode(0x2B, "as_uint", "as_uint")
-define_opcode(0x2C, "is_null", "is_null")
+    BEGIN = 0x10, "{"
+    IF = 0x11
+    IFELSE = 0x12
+    RETURN = 0x13
 
-define_opcode(0x30, "+", "plus")
-define_opcode(0x31, "-", "minus")
-define_opcode(0x32, "*", "mul")
-define_opcode(0x33, "/", "div")
-define_opcode(0x34, "%", "mod")
-define_opcode(0x35, "<<", "shl")
-define_opcode(0x36, ">>", "shr")
+    LIT_UINT = 0x20, ""
+    LIT_INT = 0x21, ""
+    LIT_STRING = 0x22, ""
+    LIT_SELECTOR = 0x23, ""
 
-define_opcode(0x40, "&", "and")
-define_opcode(0x41, "|", "or")
-define_opcode(0x42, "^", "xor")
-define_opcode(0x43, "~", "not")
+    AS_INT = 0x2A
+    AS_UINT = 0x2B
+    IS_NULL = 0x2C
 
-define_opcode(0x50, "=", "eq")
-define_opcode(0x51, "!=", "neq")
-define_opcode(0x52, "<", "lt")
-define_opcode(0x53, ">", "gt")
-define_opcode(0x54, "=<", "le")
-define_opcode(0x55, ">=", "ge")
+    PLUS = 0x30, "+"
+    MINUS = 0x31, "-"
+    MUL = 0x32, "*"
+    DIV = 0x33, "/"
+    MOD = 0x34, "%"
+    SHL = 0x35, "<<"
+    SHR = 0x36, ">>"
 
-define_opcode(0x60, "call", "call")
+    AND = 0x40, "&"
+    OR = 0x41, "|"
+    XOR = 0x42, "^"
+    NOT = 0x43, "~"
+
+    EQ = 0x50, "="
+    NEQ = 0x51, "!="
+    LT = 0x52, "<"
+    GT = 0x53, ">"
+    LE = 0x54, "=<"
+    GE = 0x55, ">="
+
+    CALL = 0x60
+
 
 # Function signatures
 sig_summary = 0
@@ -390,27 +407,27 @@ def assemble_tokens(tokens: list[str]) -> bytes:
             bytecode.append(bytearray())
         elif tok == "}":
             block = bytecode.pop()
-            emit(op_begin)
+            emit(Op.BEGIN)
             emit(len(block))  # FIXME: uleb
             bytecode[-1].extend(block)
         elif tok[0].isdigit():
             if tok[-1] == "u":
-                emit(op_lit_uint)
+                emit(Op.LIT_UINT)
                 emit(int(tok[:-1]))  # FIXME
             else:
-                emit(op_lit_int)
+                emit(Op.LIT_INT)
                 emit(int(tok))  # FIXME
         elif tok[0] == "@":
-            emit(op_lit_selector)
+            emit(Op.LIT_SELECTOR)
             emit(selector[tok])
         elif tok[0] == '"':
             # Remove backslash escaping '"' and '\'.
             s = re.sub(r'\\(["\\])', r"\1", tok[1:-1]).encode()
-            emit(op_lit_string)
+            emit(Op.LIT_STRING)
             emit(len(s))
             bytecode[-1].extend(s)
         else:
-            emit(opcode[tok])
+            emit(Op.from_mnemonic(tok))
     assert len(bytecode) == 1  # unterminated {
     return bytes(bytecode[0])
 
@@ -463,21 +480,21 @@ def disassemble(bytecode: bytes) -> Tuple[str, list[int]]:
 
     while all_bytes:
         b = next_byte()
-        if b == op_begin:
+        if b == Op.BEGIN:
             asm += "{"
             length = next_byte()
             blocks.append(length)
-        elif b == op_lit_uint:
+        elif b == Op.LIT_UINT:
             b = next_byte()
             asm += str(b)  # FIXME uleb
             asm += "u"
-        elif b == op_lit_int:
+        elif b == Op.LIT_INT:
             b = next_byte()
             asm += str(b)
-        elif b == op_lit_selector:
+        elif b == Op.LIT_SELECTOR:
             b = next_byte()
             asm += selector[b]
-        elif b == op_lit_string:
+        elif b == Op.LIT_STRING:
             length = next_byte()
             s = '"'
             for _ in range(length):
@@ -488,7 +505,7 @@ def disassemble(bytecode: bytes) -> Tuple[str, list[int]]:
             s += '"'
             asm += s
         else:
-            asm += opcode[b]
+            asm += str(Op(b))
 
         while blocks and blocks[-1] == 0:
             asm += " }"
@@ -538,7 +555,7 @@ def interpret(bytecode: bytes, control: list, data: list, tracing: bool = False)
         asm, tokens = disassemble(bytecode)
         print(
             "=== frame = {1}, data = {2}, opcode = {0}".format(
-                opcode[b], frame, [fmt(d) for d in data]
+                Op(b), frame, [fmt(d) for d in data]
             )
         )
         print(asm)
@@ -569,20 +586,20 @@ def interpret(bytecode: bytes, control: list, data: list, tracing: bool = False)
         if tracing:
             trace()
         # Data stack manipulation.
-        if b == op_dup:
+        if b == Op.DUP:
             data.append(data[-1])
-        elif b == op_drop:
+        elif b == Op.DROP:
             data.pop()
-        elif b == op_pick:
+        elif b == Op.PICK:
             data.append(data[data.pop()])
-        elif b == op_over:
+        elif b == Op.OVER:
             data.append(data[-2])
-        elif b == op_swap:
+        elif b == Op.SWAP:
             x = data.pop()
             y = data.pop()
             data.append(x)
             data.append(y)
-        elif b == op_rot:
+        elif b == Op.ROT:
             z = data.pop()
             y = data.pop()
             x = data.pop()
@@ -591,36 +608,36 @@ def interpret(bytecode: bytes, control: list, data: list, tracing: bool = False)
             data.append(y)
 
         # Control stack manipulation.
-        elif b == op_begin:
+        elif b == Op.BEGIN:
             length = next_byte()
             pc, end = frame[-1]
             control.append((pc, pc + length))
             frame[-1] = pc + length, end
-        elif b == op_if:
+        elif b == Op.IF:
             if data.pop():
                 frame.append(control.pop())
-        elif b == op_ifelse:
+        elif b == Op.IFELSE:
             if data.pop():
                 control.pop()
                 frame.append(control.pop())
             else:
                 frame.append(control.pop())
                 control.pop()
-        elif b == op_return:
+        elif b == Op.RETURN:
             control.clear()
             return data[-1]
 
         # Literals.
-        elif b == op_lit_uint:
+        elif b == Op.LIT_UINT:
             b = next_byte()  # FIXME uleb
             data.append(int(b))
-        elif b == op_lit_int:
+        elif b == Op.LIT_INT:
             b = next_byte()  # FIXME uleb
             data.append(int(b))
-        elif b == op_lit_selector:
+        elif b == Op.LIT_SELECTOR:
             b = next_byte()
             data.append(b)
-        elif b == op_lit_string:
+        elif b == Op.LIT_STRING:
             length = next_byte()
             s = ""
             while length:
@@ -628,55 +645,55 @@ def interpret(bytecode: bytes, control: list, data: list, tracing: bool = False)
                 length -= 1
             data.append(s)
 
-        elif b == op_as_uint:
+        elif b == Op.AS_UINT:
             pass
-        elif b == op_as_int:
+        elif b == Op.AS_INT:
             pass
-        elif b == op_is_null:
+        elif b == Op.IS_NULL:
             data.append(1 if data.pop() == None else 0)
 
         # Arithmetic, logic, etc.
-        elif b == op_plus:
+        elif b == Op.PLUS:
             data.append(data.pop() + data.pop())
-        elif b == op_minus:
+        elif b == Op.MINUS:
             data.append(-data.pop() + data.pop())
-        elif b == op_mul:
+        elif b == Op.MUL:
             data.append(data.pop() * data.pop())
-        elif b == op_div:
+        elif b == Op.DIV:
             y = data.pop()
             data.append(data.pop() / y)
-        elif b == op_mod:
+        elif b == Op.MOD:
             y = data.pop()
             data.append(data.pop() % y)
-        elif b == op_shl:
+        elif b == Op.SHL:
             y = data.pop()
             data.append(data.pop() << y)
-        elif b == op_shr:
+        elif b == Op.SHR:
             y = data.pop()
             data.append(data.pop() >> y)
-        elif b == op_and:
+        elif b == Op.AND:
             data.append(data.pop() & data.pop())
-        elif b == op_or:
+        elif b == Op.OR:
             data.append(data.pop() | data.pop())
-        elif b == op_xor:
+        elif b == Op.XOR:
             data.append(data.pop() ^ data.pop())
-        elif b == op_not:
+        elif b == Op.NOT:
             data.append(not data.pop())
-        elif b == op_eq:
+        elif b == Op.EQ:
             data.append(data.pop() == data.pop())
-        elif b == op_neq:
+        elif b == Op.NEQ:
             data.append(data.pop() != data.pop())
-        elif b == op_lt:
+        elif b == Op.LT:
             data.append(data.pop() > data.pop())
-        elif b == op_gt:
+        elif b == Op.GT:
             data.append(data.pop() < data.pop())
-        elif b == op_le:
+        elif b == Op.LE:
             data.append(data.pop() >= data.pop())
-        elif b == op_ge:
+        elif b == Op.GE:
             data.append(data.pop() <= data.pop())
 
         # Function calls.
-        elif b == op_call:
+        elif b == Op.CALL:
             sel = data.pop()
             if sel == sel_summary:
                 data.append(data.pop().GetSummary())

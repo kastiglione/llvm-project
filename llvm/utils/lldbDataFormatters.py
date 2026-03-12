@@ -80,10 +80,14 @@ def __lldb_init_module(debugger: lldb.SBDebugger, internal_dict) -> None:
     )
     debugger.HandleCommand(
         "type synthetic add -w llvm "
+        f"-l {__name__}.DenseMapPairSynthetic "
+        '-x "^llvm::detail::DenseMapPair<.+>"'
+    )
+    debugger.HandleCommand(
+        "type synthetic add -w llvm "
         f"-l {__name__}.DenseSetSynthetic "
         '-x "^llvm::DenseSet<.+>$"'
     )
-
     debugger.HandleCommand(
         "type synthetic add -w llvm "
         f"-l {__name__}.ExpectedSynthetic "
@@ -473,16 +477,6 @@ class DenseMapSynthetic:
     def get_child_at_index(self, child_index: int) -> lldb.SBValue:
         bucket_index = self.child_buckets[child_index]
         entry = self.valobj.GetValueForExpressionPath(f".Buckets[{bucket_index}]")
-
-        # By default, DenseMap instances use DenseMapPair to hold key-value
-        # entries. When the entry is a DenseMapPair, unwrap it to expose the
-        # children as simple std::pair values.
-        #
-        # This entry type is customizable (a template parameter). For other
-        # types, expose the entry type as is.
-        if entry.type.name.startswith("llvm::detail::DenseMapPair<"):
-            entry = entry.GetChildAtIndex(0)
-
         return entry.Clone(f"[{child_index}]")
 
     def update(self):
@@ -517,6 +511,35 @@ class DenseMapSynthetic:
         for indexes in key_buckets.values():
             if len(indexes) == 1:
                 self.child_buckets.append(indexes[0])
+
+
+class DenseMapPairSynthetic:
+    valobj: lldb.SBValue
+    pair: lldb.SBValue
+
+    def __init__(self, valobj: lldb.SBValue, _) -> None:
+        self.valobj = valobj
+
+    def num_children(self) -> int:
+        return self.pair.GetNumChildren()
+
+    def get_child_at_index(self, idx: int) -> lldb.SBValue:
+        child = self.pair.GetChildAtIndex(idx)
+        if idx == 0:
+            return child.Clone("key")
+        if idx == 1:
+            return child.Clone("value")
+        return child
+
+    def get_child_index(self, name: str) -> int:
+        if name == "first":
+            return 0
+        if name == "second":
+            return 1
+        return self.pair.GetIndexOfChildWithName(name)
+
+    def update(self):
+        self.pair = self.valobj.GetChildAtIndex(0)
 
 
 class DenseSetSynthetic:

@@ -323,7 +323,8 @@ lldb::ValueObjectSP LookupGlobalIdentifier(
 
 lldb::ValueObjectSP LookupIdentifier(llvm::StringRef name_ref,
                                      std::shared_ptr<StackFrame> stack_frame,
-                                     lldb::DynamicValueType use_dynamic) {
+                                     lldb::DynamicValueType use_dynamic,
+                                     bool allow_direct_ivars) {
   // Support $rax as a special syntax for accessing registers.
   // Will return an invalid value in case the requested register doesn't exist.
   if (name_ref.consume_front("$")) {
@@ -355,16 +356,18 @@ lldb::ValueObjectSP LookupIdentifier(llvm::StringRef name_ref,
     if (value_sp)
       return value_sp;
 
-    // Try looking for an instance variable (class member).
-    SymbolContext sc = stack_frame->GetSymbolContext(
-        lldb::eSymbolContextFunction | lldb::eSymbolContextBlock);
-    llvm::StringRef instance_name = sc.GetInstanceName();
-    value_sp = stack_frame->FindVariable(ConstString(instance_name));
-    if (value_sp)
-      value_sp = value_sp->GetChildMemberWithName(name_ref);
+    if (allow_direct_ivars) {
+      // Try looking for an instance variable (class member).
+      SymbolContext sc = stack_frame->GetSymbolContext(
+          lldb::eSymbolContextFunction | lldb::eSymbolContextBlock);
+      llvm::StringRef instance_name = sc.GetInstanceName();
+      value_sp = stack_frame->FindVariable(ConstString(instance_name));
+      if (value_sp)
+        value_sp = value_sp->GetChildMemberWithName(name_ref);
 
-    if (value_sp)
-      return value_sp;
+      if (value_sp)
+        return value_sp;
+    }
   }
   return nullptr;
 }
@@ -383,11 +386,15 @@ Interpreter::Interpreter(lldb::TargetSP target, llvm::StringRef expr,
       (options & StackFrame::eExpressionPathOptionsAllowVarUpdates) != 0;
   const bool disallow_globals =
       (options & StackFrame::eExpressionPathOptionsDisallowGlobals) != 0;
+  const bool disallow_direct_ivar_access =
+      (options & StackFrame::eExpressionPathOptionsDisallowDirectIVarAccess) !=
+      0;
 
   m_use_synthetic = !no_synth_child;
   m_check_ptr_vs_member = check_ptr_vs_member;
   m_allow_var_updates = allow_var_updates;
   m_allow_globals = !disallow_globals;
+  m_allow_direct_ivars = !disallow_direct_ivar_access;
 }
 
 llvm::Expected<lldb::ValueObjectSP> Interpreter::Evaluate(const ASTNode &node) {
@@ -422,8 +429,8 @@ llvm::Expected<lldb::ValueObjectSP>
 Interpreter::Visit(const IdentifierNode &node) {
   lldb::DynamicValueType use_dynamic = m_use_dynamic;
 
-  lldb::ValueObjectSP identifier =
-      LookupIdentifier(node.GetName(), m_exe_ctx_scope, use_dynamic);
+  lldb::ValueObjectSP identifier = LookupIdentifier(
+      node.GetName(), m_exe_ctx_scope, use_dynamic, m_allow_direct_ivars);
 
   if (!identifier && m_allow_globals)
     identifier = LookupGlobalIdentifier(node.GetName(), m_exe_ctx_scope,

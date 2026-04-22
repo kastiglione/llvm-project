@@ -25,7 +25,8 @@ namespace lldb_private::dil {
 /// evaluating).
 lldb::ValueObjectSP LookupIdentifier(llvm::StringRef name_ref,
                                      std::shared_ptr<StackFrame> frame_sp,
-                                     lldb::DynamicValueType use_dynamic);
+                                     lldb::DynamicValueType use_dynamic,
+                                     bool allow_direct_ivars);
 
 /// Given the name of an identifier, check to see if it matches the name of a
 /// global variable. If so, find the ValueObject for that global variable, and
@@ -147,6 +148,7 @@ private:
   // TODO: Remove 'maybe_unused' when next PR, using this, gets submitted.
   [[maybe_unused]] bool m_allow_var_updates;
   bool m_allow_globals = true;
+  bool m_allow_direct_ivars = true;
 };
 
 } // namespace lldb_private::dil

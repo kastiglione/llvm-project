@@ -837,8 +837,7 @@ protected:
     // Things have checked out ok...
     Status error;
     uint32_t expr_path_options =
-        StackFrame::eExpressionPathOptionCheckPtrVsMember |
-        StackFrame::eExpressionPathOptionsAllowDirectIVarAccess;
+        StackFrame::eExpressionPathOptionCheckPtrVsMember;
     valobj_sp = frame->GetValueForVariableExpressionPath(
         command.GetArgumentAtIndex(0), eNoDynamicValues, expr_path_options,
         var_sp, error);

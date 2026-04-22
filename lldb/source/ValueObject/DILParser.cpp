@@ -452,7 +452,7 @@ std::optional<CompilerType> DILParser::ParseTypeId() {
       return {};
 
     // Same-name identifiers should be preferred over typenames.
-    if (LookupIdentifier(type_name, m_ctx_scope, m_use_dynamic))
+    if (LookupIdentifier(type_name, m_ctx_scope, m_use_dynamic, false))
       // TODO: Make type accessible with 'class', 'struct' and 'union' keywords.
       return {};
 

@@ -703,7 +703,6 @@ protected:
             Status error;
             uint32_t expr_path_options =
                 StackFrame::eExpressionPathOptionCheckPtrVsMember |
-                StackFrame::eExpressionPathOptionsAllowDirectIVarAccess |
                 StackFrame::eExpressionPathOptionsInspectAnonymousUnions |
                 StackFrame::eExpressionPathOptionsAllowVarUpdates;
             lldb::VariableSP var_sp;

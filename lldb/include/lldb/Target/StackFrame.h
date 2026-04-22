@@ -53,7 +53,7 @@ public:
   enum ExpressionPathOption {
     eExpressionPathOptionCheckPtrVsMember = (1u << 0),
     eExpressionPathOptionsNoSyntheticChildren = (1u << 1),
-    eExpressionPathOptionsAllowDirectIVarAccess = (1u << 2),
+    eExpressionPathOptionsDisallowDirectIVarAccess = (1u << 2),
     eExpressionPathOptionsInspectAnonymousUnions = (1u << 3),
     eExpressionPathOptionsAllowVarUpdates = (1u << 4),
     eExpressionPathOptionsDisallowGlobals = (1u << 5)

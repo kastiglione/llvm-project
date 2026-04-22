@@ -597,6 +597,8 @@ ValueObjectSP StackFrame::LegacyGetValueForVariableExpressionPath(
       (options & eExpressionPathOptionCheckPtrVsMember) != 0;
   const bool no_synth_child =
       (options & eExpressionPathOptionsNoSyntheticChildren) != 0;
+  const bool allow_direct_ivar_access =
+      (options & eExpressionPathOptionsDisallowDirectIVarAccess) == 0;
   error.Clear();
   bool deref = false;
   bool address_of = false;
@@ -633,7 +635,7 @@ ValueObjectSP StackFrame::LegacyGetValueForVariableExpressionPath(
     var_expr = var_expr.drop_front(name_const_string.GetLength());
   }
 
-  if (!var_sp && (options & eExpressionPathOptionsAllowDirectIVarAccess)) {
+  if (!var_sp && allow_direct_ivar_access) {
     // Check for direct ivars access which helps us with implicit access to
     // ivars using "this" or "self".
     GetSymbolContext(eSymbolContextFunction | eSymbolContextBlock);

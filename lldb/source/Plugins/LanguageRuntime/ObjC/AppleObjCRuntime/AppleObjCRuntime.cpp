@@ -50,10 +50,10 @@ using namespace lldb_private;
 
 // Wrapper function to conditionally call -debugDescription or -description. The
 // wrapper checks whether the object's class directly or indirectly overrides
-// -debugDescription or -debugDescription beyond the NSObject implementations.
-// When a custom implementation exists, the wrapper calls the available
-// PrintForDebugger function and returns the C-string result. Otherwise it
-// returns null, allowing the caller to fall back to ValueObject printing.
+// -debugDescription or -description beyond the NSObject implementations. When a
+// custom implementation exists, the wrapper calls the known PrintForDebugger
+// function and returns the C-string result. Otherwise it returns null, allowing
+// the caller to fall back to ValueObject printing.
 static const char *g_print_object_wrapper_code = R"(
 extern "C" void *object_getClass(void *);
 extern "C" void *class_getMethodImplementation(void *cls, void *sel);
@@ -191,8 +191,7 @@ AppleObjCRuntime::GetObjectDescription(Stream &strm, Value &value,
 
   CompilerType void_ptr_type =
       scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
-  CompilerType char_ptr_type =
-      scratch_ts_sp->GetBasicType(lldb::eBasicTypeChar).GetPointerType();
+  CompilerType cstring_type = scratch_ts_sp->GetCStringType(true);
 
   if (!exe_ctx.GetFramePtr()) {
     Thread *thread = exe_ctx.GetThreadPtr();
@@ -227,7 +226,7 @@ AppleObjCRuntime::GetObjectDescription(Stream &strm, Value &value,
 
     Status make_caller_error;
     m_print_object_utility_up->MakeFunctionCaller(
-        char_ptr_type, arg_types, exe_ctx.GetThreadSP(), make_caller_error);
+        cstring_type, arg_types, exe_ctx.GetThreadSP(), make_caller_error);
     if (make_caller_error.Fail()) {
       m_print_object_utility_up.reset();
       return llvm::createStringError(
@@ -261,7 +260,7 @@ AppleObjCRuntime::GetObjectDescription(Stream &strm, Value &value,
 
   Value ret;
   ret.SetValueType(Value::ValueType::Scalar);
-  ret.SetCompilerType(char_ptr_type);
+  ret.SetCompilerType(cstring_type);
 
   ExpressionResults results = caller->ExecuteFunction(
       exe_ctx, &print_object_args_addr, options, diagnostics, ret);

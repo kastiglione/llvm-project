@@ -203,6 +203,8 @@ public:
   /// otherwise false.
   std::pair<uint32_t, bool> GetMaximumDepthOfChildrenToDisplay() const;
 
+  bool GetPrintBraces() const;
+
   uint32_t GetMaximumSizeOfStringSummary() const;
 
   uint32_t GetMaximumMemReadSize() const;

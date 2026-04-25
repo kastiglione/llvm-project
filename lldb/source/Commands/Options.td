@@ -1023,6 +1023,11 @@ let Command = "register read" in {
   def register_read_all : Option<"all", "a">,
                           Group<2>,
                           Desc<"Show all register sets.">;
+  def register_read_regex : Option<"regex", "r">,
+                            Desc<"Treat register name arguments as regular "
+                                 "expressions and show all registers matching "
+                                 "any of them. When no register name is given, "
+                                 "show all registers.">;
 }
 
 let Command = "source" in {

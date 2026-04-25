@@ -539,6 +539,34 @@ class RegisterCommandsTestCase(TestBase):
 
     @skipIfiOSSimulator
     @skipIf(archs=no_match(["amd64", "arm$", "i386", "x86_64"]))
+    def test_register_read_regex(self):
+        """Test that register read --regex filters registers by name pattern."""
+        self.build()
+        self.common_setup()
+
+        # A pattern matching the stack pointer should return at least one
+        # register and not error.
+        self.expect("register read --regex sp", substrs=["sp"])
+
+        # Short flag form.
+        self.expect("register read -r sp", substrs=["sp"])
+
+        # A pattern that matches nothing should error.
+        self.expect(
+            "register read -r NONEXISTENT_PATTERN_12345",
+            error=True,
+            substrs=["no registers matched any of the given patterns"],
+        )
+
+        # An invalid regex should error.
+        self.expect(
+            "register read -r '['",
+            error=True,
+            substrs=["Invalid regular expression"],
+        )
+
+    @skipIfiOSSimulator
+    @skipIf(archs=no_match(["amd64", "arm$", "i386", "x86_64"]))
     def test_invalid_invocation(self):
         self.build()
         self.common_setup()

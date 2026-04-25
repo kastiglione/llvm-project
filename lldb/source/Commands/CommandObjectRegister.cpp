@@ -27,6 +27,7 @@
 #include "lldb/Utility/Args.h"
 #include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/RegisterValue.h"
+#include "lldb/Utility/RegularExpression.h"
 #include "llvm/Support/Errno.h"
 
 using namespace lldb;
@@ -194,6 +195,47 @@ protected:
       } else if (m_command_options.set_indexes.GetSize() > 0) {
         result.AppendError("the --set <set> option can't be used when "
                            "registers names are supplied as arguments\n");
+      } else if (m_command_options.regex) {
+        // Compile patterns from positional arguments.
+        std::vector<RegularExpression> patterns;
+        for (auto &entry : command) {
+          auto arg_str = entry.ref();
+          arg_str.consume_front("$");
+          RegularExpression re(arg_str);
+          if (!re.IsValid()) {
+            result.AppendErrorWithFormat("Invalid regular expression: '%s'.",
+                                         arg_str.str().c_str());
+            return;
+          }
+          patterns.push_back(std::move(re));
+        }
+
+        // Walk all registers and print those matching any pattern.
+        const size_t num_regs = reg_ctx->GetRegisterCount();
+        bool found_match = false;
+        for (size_t reg_idx = 0; reg_idx < num_regs; ++reg_idx) {
+          const RegisterInfo *reg_info =
+              reg_ctx->GetRegisterInfoAtIndex(reg_idx);
+          if (!reg_info || !reg_info->name)
+            continue;
+
+          bool matches = false;
+          for (const auto &re : patterns) {
+            if (re.Execute(reg_info->name)) {
+              matches = true;
+              break;
+            }
+          }
+          if (!matches)
+            continue;
+
+          found_match = true;
+          bool print_flags = !m_format_options.GetFormatValue().OptionWasSet();
+          if (!DumpRegister(m_exe_ctx, strm, *reg_ctx, *reg_info, print_flags))
+            strm.Printf("%-12s = error: unavailable\n", reg_info->name);
+        }
+        if (!found_match)
+          result.AppendError("no registers matched any of the given patterns.");
       } else {
         for (auto &entry : command) {
           // in most LLDB commands we accept $rbx as the name for register RBX
@@ -229,7 +271,7 @@ protected:
     CommandOptions()
         : set_indexes(OptionValue::ConvertTypeToMask(OptionValue::eTypeUInt64)),
           dump_all_sets(false, false), // Initial and default values are false
-          alternate_name(false, false) {}
+          alternate_name(false, false), regex(false, false) {}
 
     ~CommandOptions() override = default;
 
@@ -241,6 +283,7 @@ protected:
       set_indexes.Clear();
       dump_all_sets.Clear();
       alternate_name.Clear();
+      regex.Clear();
     }
 
     Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_value,
@@ -270,6 +313,11 @@ protected:
         dump_all_sets.SetOptionWasSet();
         break;
 
+      case 'r':
+        regex.SetCurrentValue(true);
+        regex.SetOptionWasSet();
+        break;
+
       default:
         llvm_unreachable("Unimplemented option");
       }
@@ -280,6 +328,7 @@ protected:
     OptionValueArray set_indexes;
     OptionValueBoolean dump_all_sets;
     OptionValueBoolean alternate_name;
+    OptionValueBoolean regex;
   };
 
   OptionGroupOptions m_option_group;

@@ -583,7 +583,7 @@ public:
 
   AddrAndType GetPointerValue();
 
-  lldb::ValueObjectSP GetSyntheticChild(ConstString key) const;
+  lldb::ValueObjectSP GetSyntheticChild(llvm::StringRef key) const;
 
   lldb::ValueObjectSP GetSyntheticArrayMember(size_t index, bool can_create);
 
@@ -596,11 +596,11 @@ public:
   virtual lldb::ValueObjectSP
   GetSyntheticChildAtOffset(uint32_t offset, const CompilerType &type,
                             bool can_create,
-                            ConstString name_const_str = ConstString());
+                            llvm::StringRef name_const_str = llvm::StringRef());
 
   virtual lldb::ValueObjectSP
   GetSyntheticBase(uint32_t offset, const CompilerType &type, bool can_create,
-                   ConstString name_const_str = ConstString());
+                   llvm::StringRef name_const_str = llvm::StringRef());
 
   virtual lldb::ValueObjectSP GetDynamicValue(lldb::DynamicValueType valueType);
 
@@ -1203,7 +1203,7 @@ protected:
   void ClearUserVisibleData(
       uint32_t items = ValueObject::eClearUserVisibleDataItemsAllStrings);
 
-  void AddSyntheticChild(ConstString key, ValueObject *valobj);
+  void AddSyntheticChild(llvm::StringRef key, ValueObject *valobj);
 
   DataExtractor &GetDataExtractor();
 

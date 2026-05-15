@@ -22,15 +22,16 @@ class ValueObject;
 using namespace lldb_private;
 
 ValueObjectConstResultChild::ValueObjectConstResultChild(
-    ValueObject &parent, const CompilerType &compiler_type, ConstString name,
-    uint32_t byte_size, int32_t byte_offset, uint32_t bitfield_bit_size,
-    uint32_t bitfield_bit_offset, bool is_base_class, bool is_deref_of_parent,
-    lldb::addr_t live_address, uint64_t language_flags)
+    ValueObject &parent, const CompilerType &compiler_type,
+    llvm::StringRef name, uint32_t byte_size, int32_t byte_offset,
+    uint32_t bitfield_bit_size, uint32_t bitfield_bit_offset,
+    bool is_base_class, bool is_deref_of_parent, lldb::addr_t live_address,
+    uint64_t language_flags)
     : ValueObjectChild(parent, compiler_type, name, byte_size, byte_offset,
                        bitfield_bit_size, bitfield_bit_offset, is_base_class,
                        is_deref_of_parent, eAddressTypeLoad, language_flags),
       m_impl(this, live_address) {
-  m_name = name;
+  SetName(name);
 }
 
 ValueObjectConstResultChild::~ValueObjectConstResultChild() = default;
@@ -41,7 +42,7 @@ lldb::ValueObjectSP ValueObjectConstResultChild::Dereference(Status &error) {
 
 lldb::ValueObjectSP ValueObjectConstResultChild::GetSyntheticChildAtOffset(
     uint32_t offset, const CompilerType &type, bool can_create,
-    ConstString name_const_str) {
+    llvm::StringRef name_const_str) {
   return m_impl.GetSyntheticChildAtOffset(offset, type, can_create,
                                           name_const_str);
 }

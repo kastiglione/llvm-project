@@ -44,7 +44,7 @@ public:
   lldb::ValueObjectSP
   GetSyntheticChildAtOffset(uint32_t offset, const CompilerType &type,
                             bool can_create,
-                            ConstString name_const_str = ConstString());
+                            llvm::StringRef name_const_str = llvm::StringRef());
 
   lldb::ValueObjectSP AddressOf(Status &error);
 

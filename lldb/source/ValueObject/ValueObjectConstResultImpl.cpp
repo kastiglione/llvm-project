@@ -94,7 +94,7 @@ ValueObject *ValueObjectConstResultImpl::CreateChildAtIndex(size_t idx) {
     child_live_addr = m_live_address + child_byte_offset;
 
   return new ValueObjectConstResultChild(
-      *m_impl_backend, *child_compiler_type_or_err, ConstString(child_name),
+      *m_impl_backend, *child_compiler_type_or_err, child_name,
       child_byte_size, child_byte_offset, child_bitfield_bit_size,
       child_bitfield_bit_offset, child_is_base_class, child_is_deref_of_parent,
       child_live_addr, language_flags);
@@ -151,7 +151,7 @@ ValueObjectConstResultImpl::CreateSyntheticArrayMember(size_t idx) {
   if (m_live_address != LLDB_INVALID_ADDRESS && !compiler_type.IsPointerType())
     child_live_addr = m_live_address + child_byte_offset;
   return new ValueObjectConstResultChild(
-      *m_impl_backend, *child_compiler_type_or_err, ConstString(child_name),
+      *m_impl_backend, *child_compiler_type_or_err, child_name,
       child_byte_size, child_byte_offset, child_bitfield_bit_size,
       child_bitfield_bit_offset, child_is_base_class, child_is_deref_of_parent,
       child_live_addr, language_flags);
@@ -159,7 +159,7 @@ ValueObjectConstResultImpl::CreateSyntheticArrayMember(size_t idx) {
 
 lldb::ValueObjectSP ValueObjectConstResultImpl::GetSyntheticChildAtOffset(
     uint32_t offset, const CompilerType &type, bool can_create,
-    ConstString name_const_str) {
+    llvm::StringRef name_const_str) {
   if (m_impl_backend == nullptr)
     return lldb::ValueObjectSP();
 

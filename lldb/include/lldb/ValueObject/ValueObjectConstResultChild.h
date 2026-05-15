@@ -29,10 +29,11 @@ class ValueObject;
 class ValueObjectConstResultChild : public ValueObjectChild {
 public:
   ValueObjectConstResultChild(
-      ValueObject &parent, const CompilerType &compiler_type, ConstString name,
-      uint32_t byte_size, int32_t byte_offset, uint32_t bitfield_bit_size,
-      uint32_t bitfield_bit_offset, bool is_base_class, bool is_deref_of_parent,
-      lldb::addr_t live_address, uint64_t language_flags);
+      ValueObject &parent, const CompilerType &compiler_type,
+      llvm::StringRef name, uint32_t byte_size, int32_t byte_offset,
+      uint32_t bitfield_bit_size, uint32_t bitfield_bit_offset,
+      bool is_base_class, bool is_deref_of_parent, lldb::addr_t live_address,
+      uint64_t language_flags);
 
   ~ValueObjectConstResultChild() override;
 
@@ -44,7 +45,7 @@ public:
 
   lldb::ValueObjectSP GetSyntheticChildAtOffset(
       uint32_t offset, const CompilerType &type, bool can_create,
-      ConstString name_const_str = ConstString()) override;
+      llvm::StringRef name_const_str = llvm::StringRef()) override;
 
   lldb::ValueObjectSP AddressOf(Status &error) override;
 

@@ -27,7 +27,7 @@
 using namespace lldb_private;
 
 ValueObjectChild::ValueObjectChild(
-    ValueObject &parent, const CompilerType &compiler_type, ConstString name,
+    ValueObject &parent, const CompilerType &compiler_type, llvm::StringRef name,
     uint64_t byte_size, int32_t byte_offset, uint32_t bitfield_bit_size,
     uint32_t bitfield_bit_offset, bool is_base_class, bool is_deref_of_parent,
     AddressType child_ptr_or_ref_addr_type, uint64_t language_flags)
@@ -37,7 +37,7 @@ ValueObjectChild::ValueObjectChild(
       m_bitfield_bit_offset(bitfield_bit_offset),
       m_is_base_class(is_base_class), m_is_deref_of_parent(is_deref_of_parent),
       m_can_update_with_invalid_exe_ctx() {
-  m_name = name;
+  SetName(name);
   SetAddressTypeOfChildren(child_ptr_or_ref_addr_type);
   SetLanguageFlags(language_flags);
 }

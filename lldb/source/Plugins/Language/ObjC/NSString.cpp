@@ -215,7 +215,7 @@ bool lldb_private::formatters::NSStringSummaryProvider(
         lldb::eBasicTypeUnsignedInt);
     ValueObjectSP length_valobj_sp =
         valobj.GetSyntheticChildAtOffset(length_ivar_offset, length_type, true,
-                                         ConstString("_lengthAndRefCount"));
+                                         "_lengthAndRefCount");
     if (!length_valobj_sp)
       return false;
     // Get the length out of _lengthAndRefCount.

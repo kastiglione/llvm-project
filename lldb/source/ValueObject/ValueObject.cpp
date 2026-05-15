@@ -542,7 +542,7 @@ ValueObject *ValueObject::CreateChildAtIndex(size_t idx) {
   }
 
   return new ValueObjectChild(
-      *this, *child_compiler_type_or_err, ConstString(child_name),
+      *this, *child_compiler_type_or_err, child_name,
       child_byte_size, child_byte_offset, child_bitfield_bit_size,
       child_bitfield_bit_offset, child_is_base_class, child_is_deref_of_parent,
       eAddressTypeInvalid, language_flags);
@@ -580,7 +580,7 @@ ValueObject *ValueObject::CreateSyntheticArrayMember(size_t idx) {
     child_byte_offset += child_byte_size * idx;
 
     return new ValueObjectChild(
-        *this, *child_compiler_type_or_err, ConstString(child_name),
+        *this, *child_compiler_type_or_err, child_name,
         child_byte_size, child_byte_offset, child_bitfield_bit_size,
         child_bitfield_bit_offset, child_is_base_class,
         child_is_deref_of_parent, eAddressTypeInvalid, language_flags);
@@ -1796,14 +1796,14 @@ bool ValueObject::GetDeclaration(Declaration &decl) {
   return false;
 }
 
-void ValueObject::AddSyntheticChild(ConstString key, ValueObject *valobj) {
-  m_synthetic_children[key] = valobj;
+void ValueObject::AddSyntheticChild(llvm::StringRef key, ValueObject *valobj) {
+  m_synthetic_children[ConstString(key)] = valobj;
 }
 
-ValueObjectSP ValueObject::GetSyntheticChild(ConstString key) const {
+ValueObjectSP ValueObject::GetSyntheticChild(llvm::StringRef key) const {
   ValueObjectSP synthetic_child_sp;
   std::map<ConstString, ValueObject *>::const_iterator pos =
-      m_synthetic_children.find(key);
+      m_synthetic_children.find(ConstString(key));
   if (pos != m_synthetic_children.end())
     synthetic_child_sp = pos->second->GetSP();
   return synthetic_child_sp;
@@ -1863,10 +1863,9 @@ ValueObjectSP ValueObject::GetSyntheticArrayMember(size_t index,
   ValueObjectSP synthetic_child_sp;
   if (IsPointerType() || IsArrayType()) {
     std::string index_str = llvm::formatv("[{0}]", index);
-    ConstString index_const_str(index_str);
     // Check if we have already created a synthetic array member in this valid
     // object. If we have we will re-use it.
-    synthetic_child_sp = GetSyntheticChild(index_const_str);
+    synthetic_child_sp = GetSyntheticChild(index_str);
     if (!synthetic_child_sp) {
       ValueObject *synthetic_child;
       // We haven't made a synthetic array member for INDEX yet, so lets make
@@ -1875,7 +1874,7 @@ ValueObjectSP ValueObject::GetSyntheticArrayMember(size_t index,
 
       // Cache the value if we got one back...
       if (synthetic_child) {
-        AddSyntheticChild(index_const_str, synthetic_child);
+        AddSyntheticChild(index_str, synthetic_child);
         synthetic_child_sp = synthetic_child->GetSP();
         synthetic_child_sp->SetName(index_str);
         synthetic_child_sp->m_flags.m_is_array_item_for_pointer = true;
@@ -1890,10 +1889,9 @@ ValueObjectSP ValueObject::GetSyntheticBitFieldChild(uint32_t from, uint32_t to,
   ValueObjectSP synthetic_child_sp;
   if (IsScalarType()) {
     std::string index_str = llvm::formatv("[{0}-{1}]", from, to);
-    ConstString index_const_str(index_str);
     // Check if we have already created a synthetic array member in this valid
     // object. If we have we will re-use it.
-    synthetic_child_sp = GetSyntheticChild(index_const_str);
+    synthetic_child_sp = GetSyntheticChild(index_str);
     if (!synthetic_child_sp) {
       uint32_t bit_field_size = to - from + 1;
       uint32_t bit_field_offset = from;
@@ -1904,14 +1902,14 @@ ValueObjectSP ValueObject::GetSyntheticBitFieldChild(uint32_t from, uint32_t to,
       // We haven't made a synthetic array member for INDEX yet, so lets make
       // one and cache it for any future reference.
       ValueObjectChild *synthetic_child = new ValueObjectChild(
-          *this, GetCompilerType(), index_const_str,
+          *this, GetCompilerType(), index_str,
           llvm::expectedToOptional(GetByteSize()).value_or(0), 0,
           bit_field_size, bit_field_offset, false, false, eAddressTypeInvalid,
           0);
 
       // Cache the value if we got one back...
       if (synthetic_child) {
-        AddSyntheticChild(index_const_str, synthetic_child);
+        AddSyntheticChild(index_str, synthetic_child);
         synthetic_child_sp = synthetic_child->GetSP();
         synthetic_child_sp->SetName(index_str);
         synthetic_child_sp->m_flags.m_is_bitfield_for_scalar = true;
@@ -1923,17 +1921,19 @@ ValueObjectSP ValueObject::GetSyntheticBitFieldChild(uint32_t from, uint32_t to,
 
 ValueObjectSP ValueObject::GetSyntheticChildAtOffset(
     uint32_t offset, const CompilerType &type, bool can_create,
-    ConstString name_const_str) {
+    llvm::StringRef name_str) {
 
   ValueObjectSP synthetic_child_sp;
 
-  if (name_const_str.IsEmpty()) {
-    name_const_str.SetString("@" + std::to_string(offset));
+  std::string name_storage;
+  if (name_str.empty()) {
+    name_storage = "@" + std::to_string(offset);
+    name_str = name_storage;
   }
 
   // Check if we have already created a synthetic array member in this valid
   // object. If we have we will re-use it.
-  synthetic_child_sp = GetSyntheticChild(name_const_str);
+  synthetic_child_sp = GetSyntheticChild(name_str);
 
   if (synthetic_child_sp.get())
     return synthetic_child_sp;
@@ -1947,12 +1947,12 @@ ValueObjectSP ValueObject::GetSyntheticChildAtOffset(
   if (!size)
     return {};
   ValueObjectChild *synthetic_child =
-      new ValueObjectChild(*this, type, name_const_str, *size, offset, 0, 0,
+      new ValueObjectChild(*this, type, name_str, *size, offset, 0, 0,
                            false, false, eAddressTypeInvalid, 0);
   if (synthetic_child) {
-    AddSyntheticChild(name_const_str, synthetic_child);
+    AddSyntheticChild(name_str, synthetic_child);
     synthetic_child_sp = synthetic_child->GetSP();
-    synthetic_child_sp->SetName(name_const_str);
+    synthetic_child_sp->SetName(name_str);
     synthetic_child_sp->m_flags.m_is_child_at_offset = true;
   }
   return synthetic_child_sp;
@@ -1961,19 +1961,20 @@ ValueObjectSP ValueObject::GetSyntheticChildAtOffset(
 ValueObjectSP ValueObject::GetSyntheticBase(uint32_t offset,
                                             const CompilerType &type,
                                             bool can_create,
-                                            ConstString name_const_str) {
+                                            llvm::StringRef name_str) {
   ValueObjectSP synthetic_child_sp;
 
-  if (name_const_str.IsEmpty()) {
-    char name_str[128];
-    snprintf(name_str, sizeof(name_str), "base%s@%i",
-             type.GetTypeName().AsCString("<unknown>"), offset);
-    name_const_str.SetCString(name_str);
+  std::string name_storage;
+  if (name_str.empty()) {
+    name_storage = llvm::formatv("base{0}@{1}",
+                                 type.GetTypeName().AsCString("<unknown>"),
+                                 offset);
+    name_str = name_storage;
   }
 
   // Check if we have already created a synthetic array member in this valid
   // object. If we have we will re-use it.
-  synthetic_child_sp = GetSyntheticChild(name_const_str);
+  synthetic_child_sp = GetSyntheticChild(name_str);
 
   if (synthetic_child_sp.get())
     return synthetic_child_sp;
@@ -1989,12 +1990,12 @@ ValueObjectSP ValueObject::GetSyntheticBase(uint32_t offset,
   if (!size)
     return {};
   ValueObjectChild *synthetic_child =
-      new ValueObjectChild(*this, type, name_const_str, *size, offset, 0, 0,
+      new ValueObjectChild(*this, type, name_str, *size, offset, 0, 0,
                            is_base_class, false, eAddressTypeInvalid, 0);
   if (synthetic_child) {
-    AddSyntheticChild(name_const_str, synthetic_child);
+    AddSyntheticChild(name_str, synthetic_child);
     synthetic_child_sp = synthetic_child->GetSP();
-    synthetic_child_sp->SetName(name_const_str);
+    synthetic_child_sp->SetName(name_str);
   }
   return synthetic_child_sp;
 }
@@ -2017,10 +2018,9 @@ ValueObjectSP
 ValueObject::GetSyntheticExpressionPathChild(const char *expression,
                                              bool can_create) {
   ValueObjectSP synthetic_child_sp;
-  ConstString name_const_string(expression);
   // Check if we have already created a synthetic array member in this valid
   // object. If we have we will re-use it.
-  synthetic_child_sp = GetSyntheticChild(name_const_string);
+  synthetic_child_sp = GetSyntheticChild(expression);
   if (!synthetic_child_sp) {
     // We haven't made a synthetic array member for expression yet, so lets
     // make one and cache it for any future reference.
@@ -2034,9 +2034,9 @@ ValueObject::GetSyntheticExpressionPathChild(const char *expression,
     if (synthetic_child_sp.get()) {
       // FIXME: this causes a "real" child to end up with its name changed to
       // the contents of expression
-      AddSyntheticChild(name_const_string, synthetic_child_sp.get());
+      AddSyntheticChild(expression, synthetic_child_sp.get());
       synthetic_child_sp->SetName(
-          ConstString(SkipLeadingExpressionPathSeparators(expression)));
+          SkipLeadingExpressionPathSeparators(expression));
     }
   }
   return synthetic_child_sp;
@@ -2842,12 +2842,8 @@ ValueObjectSP ValueObject::Dereference(Status &error) {
   }
 
   if (deref_compiler_type && deref_byte_size) {
-    ConstString deref_name;
-    if (!deref_name_str.empty())
-      deref_name.SetCString(deref_name_str.c_str());
-
     m_deref_valobj =
-        new ValueObjectChild(*this, deref_compiler_type, deref_name,
+        new ValueObjectChild(*this, deref_compiler_type, deref_name_str,
                              deref_byte_size, deref_byte_offset, 0, 0, false,
                              true, eAddressTypeInvalid, language_flags);
   }
@@ -2862,12 +2858,8 @@ ValueObjectSP ValueObject::Dereference(Status &error) {
       deref_compiler_type = compiler_type.GetPointeeType();
 
       if (deref_compiler_type) {
-        ConstString deref_name;
-        if (!deref_name_str.empty())
-          deref_name.SetCString(deref_name_str.c_str());
-
         m_deref_valobj = new ValueObjectChild(
-            *this, deref_compiler_type, deref_name, deref_byte_size,
+            *this, deref_compiler_type, deref_name_str, deref_byte_size,
             deref_byte_offset, 0, 0, false, true, eAddressTypeInvalid,
             language_flags);
       }
